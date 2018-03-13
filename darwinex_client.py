@@ -12,18 +12,21 @@ class DarwinexAPIClient:
                        'Connection': 'Keep-Alive',
                        'Accept-Encoding': 'gzip'}
 
-    def __init__(self, user, password, device_id="", demo=True):
+    def __init__(self, user, password, demo=True, device_id="", apikey='a5fe75ff729a251cbbd4f11ee541c2c4'):
         """
         Set api url (demo or real) and call _set_token_into_default_headers.
 
-         Keyword arguments:
-            user (str) -- darwinex user name
-            password (str) -- darwinex user password
-            demo (bool) -- indicate to use demo account or real account (default: True)
+        Keyword arguments:
+            user (str) -- darwinex user name.
+            password (str) -- darwinex user password.
+            demo (bool) -- indicate to use demo account or real account (default: True).
+            device_id (str) -- android device id (default: '').
+            apikey (str) -- darwinex apikey (default: current mobile app apikey ('a5fe75ff729a251cbbd4f11ee541c2c4')).
 
         """
         self.user = user
         self.password = password
+        self.apikey = apikey
         self.device_id = device_id
         if demo:
             self.base_url = 'https://app.darwinex.com/api-demo'
@@ -36,6 +39,10 @@ class DarwinexAPIClient:
     def _process_response(self, response):
         """
         Process API response after receiving.
+
+        Keyword arguments:
+            response (Response <Response> object) -- darwinex api response.
+
         """
         try:
             result = response.json()
@@ -58,40 +65,48 @@ class DarwinexAPIClient:
 
         return result
 
-    def _process_request(self, url, method='get', params={}, data=None, headers=None):
+    def _process_request(self, url, method='get', params=None, data=None, headers=None):
         """
         Process API request before sending.
+
+        Keyword arguments:
+            url (str) -- relative URL to send.
+            method (str) -- HTTP method to use.
+                Values can take: ['get', 'post', 'put', 'patch', 'delete']
+            params (dict) -- params to be sent in the query string for the.
+            data (dict) -- data to send in the body of the HTTP request.
+            headers (dict) -- HTTP Headers to send in the HTTP request.
+
         """
         if not headers:
             headers = self.default_headers
         if data:
             headers = headers.copy()
             headers.update({'Content-Type': 'application/json; charset=UTF-8',
-                            'Content-Length': len(str(data).replace(" ", "")),
+                            'Content-Length': str(len(str(data).replace(" ", ""))),
                             })
             data = json.dumps(data)
-        response = requests.request(method=method, url='{}{}'.format(self.base_url, url), params=params, data=data, headers=headers)
+        response = requests.request(method=method, url='{}{}'.format(self.base_url, url), params=params, data=data,
+                                    headers=headers)
         return self._process_response(response)
 
     ############
     # AUTH API #
     ############
 
-    def login(self, apikey='a5fe75ff729a251cbbd4f11ee541c2c4'):
+    def login(self):
         """
-        Get authentication token providing deviceId, password and username
-
-         Keyword arguments:
-            apikey (str) -- darwinex apikey (default: currrent mobile app apikey)
+        Get authentication token providing deviceId, password and username.
 
         Response:
             {"authtoken":"eyJjdHk..."}
 
-        If user or password is not correct it returns an error:
-            {"errors": [{"code": "USER_INVALID_CREDENTIALS", "message": "Invalid credentials.", "value": ""}]}
+        Errors:
+            If user or password is not correct it returns an error:
+                {"errors": [{"code": "USER_INVALID_CREDENTIALS", "message": "Invalid credentials.", "value": ""}]}
 
-        Also, if API Key is not correct it returns an error:
-            {"errors": [{"code": "AUTH_INVALID_API_KEY", "message": "Invalid api key.", "value": ""}]}
+            Also, if API Key is not correct it returns an error:
+                {"errors": [{"code": "AUTH_INVALID_API_KEY", "message": "Invalid api key.", "value": ""}]}
 
         """
         url = '/auth/token'
@@ -100,17 +115,18 @@ class DarwinexAPIClient:
                 "username": self.user,
                 "password": self.password}
 
+        # Note: It could be possible that app show a captcha and should be added the "captcha_response" in as a get
+        # param. However I have never seen that case.
+
         headers = self.default_headers.copy()
-        headers.update({'Authorization': 'ApiKey {}'.format(apikey)})
+        headers.update({'Authorization': 'ApiKey {}'.format(self.apikey)})
         response = self._process_request(url=url, method='post', data=data, headers=headers)
         return response
 
-    # IN PROGRESS
-    # auth/token POST {"Authorization: ApiKey"} captcha_response (json body)
-
     def _set_token_into_default_headers(self):
         """
-        Set darwinex user token into default headers to avoid
+        Set darwinex user token into default headers to avoid build it every time.
+
         """
         login_info = self.login()
 
@@ -125,10 +141,10 @@ class DarwinexAPIClient:
 
     def logout(self):
         """
-        Logout
+        Logout. It makes Token invalid.
 
-        It makes Token invalid.
-        Note: To set again the token in the default headers you should use: _set_token_into_default_headers()
+        Note: To set again the token in the default headers you should use: _set_token_into_default_headers() or
+        instantiate another DarwinexAPIClient object.
 
         Response:
             ''
@@ -139,21 +155,85 @@ class DarwinexAPIClient:
         response = self._process_request(url=url, method='post')
         return response
 
-    # IN PROGRESS
+    def register(self, email, username, password, device_id, locale="en"):
+        """
+        Register new user.
 
-    # auth/recover_password
-    # POST {"Authorization: ApiKey"}
-    # (json body)
+        Keyword arguments:
+            email (str) -- email for the new user.
+            username (str) -- username for the new user.
+            password (str) -- password for the new user. Should be between 8 and 20 characters.
+            device_id (str) -- android uuid (example: dc714af6-6acb-2bb1-284b-5cee8c4cac7e).
+            locale (str) -- language for the user (default: 'en').
+                Values can take: ['en', 'es'...]
 
-    # auth/register
-    # POST
-    # {"Authorization: ApiKey"}
-    # (json body)
+        Response:
+            {"authtoken":"eyJjdHk..."}
+
+        Errors:
+            If device id is not valid returns an error:
+                {"errors":[{"code":"INVALID_DEVICE_ID","message":"A device id is required.","value":""}]}
+
+            If user already exists returns an error:
+                {"errors":[{"code":"EXISTING_USERNAME","message":"Username XXXXX already in use","value":""}]}
+
+            If email already exists returns an error:
+                {"errors":[{"code":"EXISTING_EMAIL","message":"Email XXXXX already in use.","value":""}]}
+
+            If password is too short or too long returns an error:
+                {"errors":[{"code":"INVALID_PASSWORD","message":"Password must be between 8 and 20 characters long.","value":""}]}
+
+            If email has not the correct format, it returns an error:
+                {"errors":[{"code":"INVALID_EMAIL","message":"Malformed email address.","value":""}]}
+
+        """
+        url = '/auth/register'
+
+        data = {"deviceId": device_id,
+                "email": email,
+                "locale": locale,
+                "username": username,
+                "password": password}
+
+        headers = self.default_headers.copy()
+        headers.update({'Authorization': 'ApiKey {}'.format(self.apikey)})
+        response = self._process_request(url=url, method='post', data=data, headers=headers)
+        return response
+
+    # TODO: recover_password method requires a solved captcha (recaptcha) and don't know exactly where it comes from and
+    # how to generate it.
+
+    # def recover_password(self, email):
+    #     """
+    #     Recover password for a given email.
+    #
+    #     Keyword arguments:
+    #         email(str) -- email to recover password from
+    #
+    #     Response:
+    #         ¿?
+    #
+    #     Errors:
+    #         If captcha is not correct returns an error:
+    #           {"errors":[{"code":"AUTH_UNVERIFIED_CAPTCHA","message":"Captcha not verified.","value":""}]}
+    #
+    #         If email is not registered returns an error:
+    #           ...
+    #
+    #     """
+    #     url = '/auth/recover_password'
+    #
+    #     data = {'email': email}
+    #
+    #     headers = self.default_headers.copy()
+    #     headers.update({'Authorization': 'ApiKey {}'.format(self.apikey)})
+    #     response = self._process_request(url=url, method='post', data=data, headers=headers)
+    #     return response
 
     @property
     def me(self):
         """
-        Get personal info
+        Get personal info.
 
         Response:
             {"me" : "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
@@ -172,12 +252,12 @@ class DarwinexAPIClient:
 
     def search(self, query, position=0, limit=10):
         """
-        Search darwins
+        Search darwins from a given string.
 
-         Keyword arguments:
-            query (str) -- string to search for
-            position (int) -- ¿? (default 0)
-            limit (int)-- limit the number of results. Should be an integer in 0 < limit < 51. (default 10)
+        Keyword arguments:
+            query (str) -- string to search for.
+            position (int) -- ¿? (default 0).
+            limit (int)-- limit the number of results. Should be an integer in 0 < limit < 51. (default 10).
 
         Response:
             [{'dscore': 36.97275847626485, 'product_name': 'AVT.4.5'},
@@ -190,7 +270,8 @@ class DarwinexAPIClient:
 
         Errors:
             If limit is minor than 1, it returns an error:
-                {"errors":[{"code":"BAD_REQUEST","message":"Page size must not be less than one!","value":""}]}'
+                {"errors":[{"code":"BAD_REQUEST","message":"Page size must not be less than one!","value":""}]}
+
             If limit is bigger than 50, it returns an error:
                 {"errors":[{"code":"BAD_REQUEST","message":"The number of elements should be greater than 0 and less than 51","value":""}]}
 
@@ -207,11 +288,11 @@ class DarwinexAPIClient:
 
     def darwin_quote(self, name, zoom=''):
         """
-        Get a darwin quote
+        Get a darwin quote.
 
         Keyword arguments:
-            name (str) -- darwin name
-            zoom (str) -- search period (default '' - current moment)
+            name (str) -- darwin name.
+            zoom (str) -- search period (default '' - current moment).
                 Values can take: ['', '1D', '5D', '7D', '1W', '1M', '3M', '6M', 'YTD', '1Y', '2Y', '3Y', '5Y', '10Y', 'ALL']
 
         Response:
@@ -233,7 +314,8 @@ class DarwinexAPIClient:
 
         Errors:
             If darwin name is not correct it returns an error:
-                {"errors":[{"code":"BAD_REQUEST","message":"No handler found for GET /api-demo/darwin/VTJ.2/statistics/1D","value":"/api-demo/darwin/VTJ.2/statistics/1D"}]}'
+                {"errors":[{"code":"BAD_REQUEST","message":"No handler found for GET /api-demo/darwin/VTJ.2/statistics/1D","value":"/api-demo/darwin/VTJ.2/statistics/1D"}]}
+
             If zoom is not a valid it returns an error:
                 {"errors":[{"code":"BAD_REQUEST","message":"No enum constant com.tradeslide.domain.Zoom._XX","value":""}]}
 
@@ -245,13 +327,13 @@ class DarwinexAPIClient:
 
     def darwin_statistics(self, name, zoom='', locale='en'):
         """
-        Get statistics from a darwin
+        Get statistics from a darwin.
 
         Keyword arguments:
-            name (str) -- darwin name
-            zoom (str) -- search period (default '' - current moment)
+            name (str) -- darwin name.
+            zoom (str) -- search period (default '' - current moment).
                 Values can take: ['', '1D', '5D', '7D', '1W', '1M', '3M', '6M', 'YTD', '1Y', '2Y', '3Y', '5Y', '10Y', 'ALL']
-            locale (str) -- language to show the descriptions (default: 'en')
+            locale (str) -- language to show the descriptions (default: 'en').
                 Values can take: ['en', 'es'...]
 
         Response:
@@ -305,8 +387,9 @@ class DarwinexAPIClient:
         Errors:
             If zoom is not a valid it returns an error:
                 {"errors":[{"code":"BAD_REQUEST","message":"No enum constant com.tradeslide.domain.Zoom._XX","value":""}]}
+
             If darwin name is not correct it returns an error:
-                {"errors":[{"code":"BAD_REQUEST","message":"No handler found for GET /api-demo/darwin/VTJ.2/statistics/1D","value":"/api-demo/darwin/VTJ.2/statistics/1D"}]}'
+                {"errors":[{"code":"BAD_REQUEST","message":"No handler found for GET /api-demo/darwin/VTJ.2/statistics/1D","value":"/api-demo/darwin/VTJ.2/statistics/1D"}]}
 
         """
         url = '/darwin/{}/statistics/{}'.format(name, zoom)
@@ -322,7 +405,7 @@ class DarwinexAPIClient:
     @property
     def balance(self):
         """
-        Get investor balance
+        Get investor balance.
 
         Response:
             {'available': 0.02,
@@ -339,7 +422,7 @@ class DarwinexAPIClient:
     @property
     def portfolio_summary(self):
         """
-        Get investor portfolio summary
+        Get investor portfolio summary.
 
         Response:
             {'available': 0.02,
@@ -361,7 +444,7 @@ class DarwinexAPIClient:
     @property
     def portfolio_distribution(self):
         """
-        Get investor portfolio distribution
+        Get investor portfolio distribution.
 
         Response:
             [{'averageQuote': 254.79,
@@ -393,10 +476,10 @@ class DarwinexAPIClient:
 
     def portfolio(self, zoom='1D'):
         """
-        Get investor portfolio
+        Get investor portfolio.
 
         Keyword arguments:
-            zoom (str) -- search period (default '1D' - last day)
+            zoom (str) -- search period (default '1D' - last day).
                 Values can take: ['', '1D', '5D', '7D', '1W', '1M', '3M', '6M', 'YTD', '1Y', '2Y', '3Y', '5Y', '10Y', 'ALL']
 
         Response:
@@ -422,7 +505,7 @@ class DarwinexAPIClient:
     @property
     def account(self):
         """
-        Get investor account
+        Get investor account.
 
         Response:
             {'available': 0.02,
@@ -438,13 +521,17 @@ class DarwinexAPIClient:
 
     def change_risk(self, amount):
         """
-        Change risk
+        Change risk.
 
         Keyword arguments:
-            amount (num) -- new risk value
+            amount (num) -- new risk value.
 
         Response:
             {'risk': 79.0}
+
+        Errors:
+            If risk value is too high it returns an error:
+                ...
 
         """
         url = '/investor/account'
@@ -456,10 +543,10 @@ class DarwinexAPIClient:
 
     def add_funds(self, amount):
         """
-        Add funds
+        Add funds.
 
         Keyword arguments:
-            amount (num) -- funds to add
+            amount (num) -- funds to add.
 
         Response:
             {'available': 8775.23,
@@ -481,16 +568,16 @@ class DarwinexAPIClient:
 
     def withdraw_funds(self, amount):
         """
-        Withdraw funds
+        Withdraw funds.
 
         Keyword arguments:
-            amount (num) -- funds to withdraw
+            amount (num) -- funds to withdraw.
 
         Response:
             [WAITING TO TEST IN REAL ACCOUNT]
 
         If you try to withdraw funds in demo account it returns an error:
-            {"errors":[{"code":"BAD_REQUEST","message":"Funds withdrawal operation is not available for DEMO accounts.","value":""}]}'
+            {"errors":[{"code":"BAD_REQUEST","message":"Funds withdrawal operation is not available for DEMO accounts.","value":""}]}
 
         If amount is bigger than available to withdraw it returns an error:
             [WAITING TO TEST IN REAL ACCOUNT]
@@ -505,10 +592,10 @@ class DarwinexAPIClient:
 
     def get_investment(self, name):
         """
-        Get investor investment in a darwin
+        Get investor investment in a darwin.
 
         Keyword arguments:
-            name (str) -- darwin name
+            name (str) -- darwin name.
 
         Response:
             {'darwin_availability':
@@ -539,11 +626,11 @@ class DarwinexAPIClient:
 
     def buy(self, name, amount):
         """
-        Buy a darwin
+        Buy a darwin.
 
         Keyword arguments:
-            name (str) -- darwin name
-            amount (num) -- quantity to invest in the darwin
+            name (str) -- darwin name.
+            amount (num) -- quantity to invest in the darwin.
 
         Response:
             {'price': 200.71}
@@ -551,8 +638,10 @@ class DarwinexAPIClient:
         Errors:
             If the amount is bigger than the available equity it returns the next error:
                 {"errors":[{"code":"INVESTMENT_NOT_ENOUGH_FUNDS","message":"NOT_ENOUGH_FUNDS","value":""}]}
+
             If amount is less than the minimum order volume it returns the next error:
                 {"errors":[{"code":"INVESTMENT_INVALID_ORDER_VOLUME","message":"INVALID_AMOUNT","value":"25.00"}]}
+
             If market is closed:
                 {"errors":[{"code":"INVESTMENT_MARKET_CLOSED","message":"MARKET_CLOSED","value":""}]}
 
@@ -566,19 +655,21 @@ class DarwinexAPIClient:
 
     def sell(self, name, amount):
         """
-        Sell a darwin
+        Sell a darwin.
+
+        Note: If the amount is bigger than the invested volume, it works, and all darwin is sold.
 
         Keyword arguments:
-            name (str) -- darwin name
-            amount (num) -- quantity to sell from the darwin
+            name (str) -- darwin name.
+            amount (num) -- quantity to sell from the darwin.
 
         Response:
             {'price': 200.71}
 
         Errors:
-            If the amount is bigger than the invested volume, it works, and all darwin is sold.
             If the amount is less than the minimum order volume it returns an error:
                 {"errors":[{"code":"INVESTMENT_INVALID_ORDER_VOLUME","message":"INVALID_AMOUNT","value":"25.00"}]}
+
             If market is closed:
                 {"errors":[{"code":"INVESTMENT_MARKET_CLOSED","message":"MARKET_CLOSED","value":""}]}
 
@@ -596,10 +687,10 @@ class DarwinexAPIClient:
 
     def get_filters(self, locale='en'):
         """
-        Get filters
+        Get filters.
 
         Keyword arguments:
-            locale (str) -- language to show the descriptions (default: 'en')
+            locale (str) -- language to show the descriptions (default: 'en').
                 Values can take: ['en', 'es'...]
 
         Response:
@@ -632,22 +723,24 @@ class DarwinexAPIClient:
         Get darwins in filter
 
         Keyword arguments:
-            filter_id (str) -- Filter id
-            filter_type -- Filter type
+            filter_id (str) -- filter id.
+            filter_type -- filter type.
                 Values can take: ['USER', 'PREDEFINED']
-            order (str) -- Result order (default 'RETURN')
+            order (str) -- result order (default 'RETURN').
                 Values can take: ['RETURN', 'DRAWDOWN', 'RETURN_DRAWDOWN', 'TS_SCORE', 'CURRENT_INVESTMENT']
-            position (int) -- ¿? (default 1)
+            position (int) -- ¿? (default 1).
             limit (int)-- limit the number of results. Should be an integer in 0 < limit < 51. (default 10)
-            zoom (str) -- search period (default '2Y' - 2 last years)
+            zoom (str) -- search period (default '2Y' - 2 last years).
                 Values can take: ['', '1D', '5D', '7D', '1W', '1M', '3M', '6M', 'YTD', '1Y', '2Y', '3Y', '5Y', '10Y', 'ALL']
-            locale (str) -- language to show the descriptions (default: 'en')
+            locale (str) -- language to show the descriptions (default: 'en').
                 Values can take: ['en', 'es'...]
 
        Response:
-            ...
-                ...
-                8.785179964186687,
+            [{'chart': {'max': 117.32,
+              'min': -1.02,
+              'values': [0.0,
+                0.04825200819188967,
+                0.012065302830358069,
                 ...
                 120.13659647844703]},
             'drawdown': -12.30174117147821,

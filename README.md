@@ -47,6 +47,48 @@ Using REAL account. Use at YOUR OWN RISK!
  'wallet': 0.0}
 ```
 
+##### User portfolio summary:
+
+```python
+>>> d.portfolio_summary
+{'available': 0.02,
+ 'availableToInvest': 0.04,
+ 'closedPnL': -83.54,
+ 'equity': 603.43,
+ 'equityAtRisk': 64.97,
+ 'invested': 1232.64,
+ 'maxRisk': 80.0,
+ 'openPnL': -12.9,
+ 'pfees': 2.7795284357312826,
+ 'rebates': 2.66}
+```
+
+##### User portfolio distribution:
+
+```python
+>>> d.portfolio_distribution
+[{'averageQuote': 254.79,
+  'currentQuote': 256.69,
+  'invested': 342.69,
+  'openPnL': 2.71,
+  'product': 'DLF.4.7'},
+ {'averageQuote': 206.3,
+  'currentQuote': 200.71,
+  'invested': 221.14,
+  'openPnL': -6.98,
+  'product': 'VTJ.4.2'},
+ {'averageQuote': 216.13,
+  'currentQuote': 219.4,
+  'invested': 281.75,
+  'openPnL': 4.68,
+  'product': 'JZH.4.13'},
+ {'averageQuote': 285.8,
+  'currentQuote': 276.14,
+  'invested': 387.07,
+  'openPnL': -13.36,
+  'product': 'QUA.4.3'}]
+```
+
 ##### Search for darwins:
 
 ```python
