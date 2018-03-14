@@ -27,7 +27,7 @@ class DarwinexAPIClient:
         """
         self.user = user
         self.password = password
-        self.apikey = apikey
+        self._apikey = apikey
         self.device_id = device_id
         if demo:
             self.base_url = 'https://app.darwinex.com/api-demo'
@@ -131,7 +131,7 @@ class DarwinexAPIClient:
         # param. However I have never seen that case.
 
         headers = self.default_headers.copy()
-        headers.update({'Authorization': 'ApiKey {}'.format(self.apikey)})
+        headers.update({'Authorization': 'ApiKey {}'.format(self._apikey)})
         response = self._process_request(url=url, method='post', data=data, headers=headers)
         return response
 
@@ -207,7 +207,7 @@ class DarwinexAPIClient:
                 "password": password}
 
         headers = self.default_headers.copy()
-        headers.update({'Authorization': 'ApiKey {}'.format(self.apikey)})
+        headers.update({'Authorization': 'ApiKey {}'.format(self._apikey)})
         response = self._process_request(url=url, method='post', data=data, headers=headers)
         return response
 
@@ -237,7 +237,7 @@ class DarwinexAPIClient:
     #     data = {'email': email}
     #
     #     headers = self.default_headers.copy()
-    #     headers.update({'Authorization': 'ApiKey {}'.format(self.apikey)})
+    #     headers.update({'Authorization': 'ApiKey {}'.format(self._apikey)})
     #     response = self._process_request(url=url, method='post', data=data, headers=headers)
     #     return response
 
