@@ -2,8 +2,9 @@ import json
 import requests
 
 
-class DarwinexApiClientException(Exception):
-    pass
+class DarwinexAPIClientException(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 
 class DarwinexAPIClient:
@@ -52,16 +53,27 @@ class DarwinexAPIClient:
         try:
             response.raise_for_status()
         except Exception as e:
+            message = ''
+
             try:
                 errors = result.get('errors')
                 if errors:
                     for error in errors:
-                        print('Code: {}'.format(error.get('code', '')))
-                        print('Message: {}'.format(error.get('message', '')))
-                        print('Value: {}'.format(error.get('value', '')))
+                        code = error.get('code')
+                        msg = error.get('message')
+                        value = error.get('value')
+
+                        if code:
+                            message += 'Code: {}. '.format(code)
+                        if msg:
+                            message += 'Message: {} '.format(msg)
+                        if value:
+                            message += 'Value: {} '.format(value)
             except AttributeError:
                 print(result)
-            raise DarwinexApiClientException(e)
+
+            exception = message if message else e
+            raise DarwinexAPIClientException(exception)
 
         return result
 
@@ -96,7 +108,7 @@ class DarwinexAPIClient:
 
     def login(self):
         """
-        Get authentication token providing deviceId, password and username.
+        Get authentication token for given user
 
         Response:
             {"authtoken":"eyJjdHk..."}
@@ -135,7 +147,6 @@ class DarwinexAPIClient:
             self.default_headers.update({'Authorization': token})
 
         except KeyError:
-            token = None
             if login_info.get('errors'):
                 print(login_info.get('errors'))
 
