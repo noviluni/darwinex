@@ -56,19 +56,18 @@ class DarwinexAPIClient:
             message = ''
 
             try:
-                errors = result.get('errors')
-                if errors:
-                    for error in errors:
-                        code = error.get('code')
-                        msg = error.get('message')
-                        value = error.get('value')
+                errors = result.get('errors', [])
+                for error in errors:
+                    code = error.get('code')
+                    msg = error.get('message')
+                    value = error.get('value')
 
-                        if code:
-                            message += 'Code: {}. '.format(code)
-                        if msg:
-                            message += 'Message: {} '.format(msg)
-                        if value:
-                            message += 'Value: {} '.format(value)
+                    if code:
+                        message += 'Code: {}. '.format(code)
+                    if msg:
+                        message += 'Message: {} '.format(msg)
+                    if value:
+                        message += 'Value: {} '.format(value)
             except AttributeError:
                 print(result)
 
